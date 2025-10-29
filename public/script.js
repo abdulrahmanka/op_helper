@@ -34,13 +34,34 @@ calculatorForm.addEventListener('submit', handleCalculate);
 saveConfigBtn.addEventListener('click', saveConfiguration);
 loadConfigBtn.addEventListener('click', loadConfiguration);
 
+// Real-time calculation setup
+const inputIds = ['delta', 'theta', 'tradeTime', 'risk', 'reward', 'entry', 'tradeType'];
+let calculationTimeout;
+
+inputIds.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+        element.addEventListener('input', debounceCalculation);
+        element.addEventListener('change', debounceCalculation);
+    }
+});
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadConfiguration();
+    // Calculate with default values
+    setTimeout(debounceCalculation, 500);
 });
 
 function toggleConfigSection() {
     configSection.classList.toggle('hidden');
+}
+
+function debounceCalculation() {
+    clearTimeout(calculationTimeout);
+    calculationTimeout = setTimeout(() => {
+        performCalculation(false); // false means it's a real-time calculation, not form submit
+    }, 300); // 300ms debounce
 }
 
 async function makeApiCall(endpoint, method = 'GET', data = null) {
@@ -72,15 +93,19 @@ async function makeApiCall(endpoint, method = 'GET', data = null) {
 
 async function handleCalculate(event) {
     event.preventDefault();
-    
-    // Show loading state
-    results.classList.add('hidden');
-    noResults.classList.add('hidden');
-    loading.classList.remove('hidden');
+    await performCalculation(true);
+}
+
+async function performCalculation(isFormSubmit = true) {
+    // Show loading state only for form submits
+    if (isFormSubmit) {
+        results.classList.add('hidden');
+        noResults.classList.add('hidden');
+        loading.classList.remove('hidden');
+    }
     
     try {
         // Get form data
-        const formData = new FormData(calculatorForm);
         const data = {
             delta: parseFloat(document.getElementById('delta').value),
             theta: parseFloat(document.getElementById('theta').value),
@@ -91,10 +116,16 @@ async function handleCalculate(event) {
             trade_type: document.getElementById('tradeType').value
         };
         
-        // Validate inputs
+        // Validate inputs for real-time calculations (be more lenient)
         for (const [key, value] of Object.entries(data)) {
             if (key !== 'trade_type' && (isNaN(value) || value === '')) {
-                throw new Error(`Invalid ${key.replace('_', ' ')} value`);
+                if (!isFormSubmit) {
+                    // For real-time, just show no results if data is incomplete
+                    showNoResults();
+                    return;
+                } else {
+                    throw new Error(`Invalid ${key.replace('_', ' ')} value`);
+                }
             }
         }
         
@@ -110,9 +141,16 @@ async function handleCalculate(event) {
         }
         
     } catch (error) {
-        showError('Calculation failed: ' + error.message);
+        if (isFormSubmit) {
+            showError('Calculation failed: ' + error.message);
+        } else {
+            // For real-time calculations, silently fail and show no results
+            showNoResults();
+        }
     } finally {
-        loading.classList.add('hidden');
+        if (isFormSubmit) {
+            loading.classList.add('hidden');
+        }
     }
 }
 
@@ -257,6 +295,12 @@ function showConfigStatus(message, type) {
     }, 5000);
 }
 
+function showNoResults() {
+    results.classList.add('hidden');
+    loading.classList.add('hidden');
+    noResults.classList.remove('hidden');
+}
+
 function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
@@ -280,9 +324,7 @@ function showError(message) {
     }, 5000);
     
     // Show no results state
-    results.classList.add('hidden');
-    loading.classList.add('hidden');
-    noResults.classList.remove('hidden');
+    showNoResults();
 }
 
 // Utility function to format currency

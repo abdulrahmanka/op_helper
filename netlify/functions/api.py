@@ -223,6 +223,10 @@ def handler(event, context):
     http_method = event.get('httpMethod', 'GET')
     path = event.get('path', '').replace('/.netlify/functions/api', '')
     
+    # Handle direct function calls (path might be empty)
+    if not path:
+        path = event.get('rawUrl', '').split('/')[-1] if event.get('rawUrl') else ''
+    
     # Parse request body for POST requests
     body = {}
     if http_method in ['POST', 'PUT'] and event.get('body'):
