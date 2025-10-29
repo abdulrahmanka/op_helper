@@ -7,6 +7,7 @@ Provides endpoints for trade calculations and future option chain integration.
 """
 
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from option_pricing_helper import OptionPricingHelper, OptionTradeInputs, TradeType
 from config_manager import ConfigManager
 from typing import Dict, Any
@@ -17,6 +18,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Enable CORS for all routes
+CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000'], 
+     methods=['GET', 'POST', 'OPTIONS'],
+     allow_headers=['Content-Type', 'Authorization'])
+
 config_manager = ConfigManager()
 helper = OptionPricingHelper(config_manager)
 
