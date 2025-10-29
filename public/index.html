@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Option Pricing Helper</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .risk-success { background-color: #dcfce7; border-color: #16a34a; color: #166534; }
+        .risk-warning { background-color: #fef3c7; border-color: #d97706; color: #92400e; }
+        .risk-error { background-color: #fee2e2; border-color: #dc2626; color: #991b1b; }
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-chart-line text-2xl"></i>
+                    <h1 class="text-2xl font-bold">Option Pricing Helper</h1>
+                </div>
+                <button id="configBtn" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-cog mr-2"></i>Settings
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Configuration Section -->
+        <div id="configSection" class="mb-8 hidden">
+            <div class="bg-white rounded-lg card-shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">
+                    <i class="fas fa-cog text-blue-600 mr-2"></i>Risk Management Configuration
+                </h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Total Capital ($)</label>
+                        <input type="number" id="totalCapital" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10000">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Risk Per Trade (%)</label>
+                        <input type="number" id="riskPercentage" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="2.0">
+                    </div>
+                </div>
+                <div class="mt-4 flex space-x-3">
+                    <button id="saveConfigBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">
+                        <i class="fas fa-save mr-2"></i>Save Configuration
+                    </button>
+                    <button id="loadConfigBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors">
+                        <i class="fas fa-download mr-2"></i>Load Current
+                    </button>
+                </div>
+                <div id="configStatus" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Main Calculator -->
+        <div class="grid lg:grid-cols-2 gap-8">
+            <!-- Input Section -->
+            <div class="bg-white rounded-lg card-shadow p-6">
+                <h2 class="text-xl font-semibold mb-6">
+                    <i class="fas fa-calculator text-green-600 mr-2"></i>Option Trade Calculator
+                </h2>
+                
+                <form id="calculatorForm" class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Delta</label>
+                            <input type="number" id="delta" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.5" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Theta</label>
+                            <input type="number" id="theta" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="-0.05" required>
+                        </div>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Trade Time (minutes)</label>
+                            <input type="number" id="tradeTime" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="30" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Entry Price ($)</label>
+                            <input type="number" id="entry" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10.0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Risk ($)</label>
+                            <input type="number" id="risk" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="100" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Reward ($)</label>
+                            <input type="number" id="reward" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="200" required>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Trade Type</label>
+                        <select id="tradeType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <option value="buy">Buy Option</option>
+                            <option value="sell">Sell Option</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors">
+                        <i class="fas fa-calculator mr-2"></i>Calculate Option Trade
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div class="bg-white rounded-lg card-shadow p-6">
+                <h2 class="text-xl font-semibold mb-6">
+                    <i class="fas fa-chart-bar text-purple-600 mr-2"></i>Calculation Results
+                </h2>
+                
+                <div id="results" class="hidden space-y-4">
+                    <!-- Risk Validation Alert -->
+                    <div id="riskValidation" class="hidden p-4 rounded-lg border-2"></div>
+                    
+                    <!-- Trade Metrics -->
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Trade Decay</div>
+                            <div id="tradeDecay" class="text-xl font-semibold text-gray-800">-</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Risk Amount</div>
+                            <div id="riskAmount" class="text-xl font-semibold text-gray-800">-</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Exit Points -->
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div class="text-sm text-green-600 flex items-center">
+                                <i class="fas fa-arrow-up mr-1"></i>Take Profit
+                            </div>
+                            <div id="takeProfit" class="text-xl font-semibold text-green-800">-</div>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <div class="text-sm text-red-600 flex items-center">
+                                <i class="fas fa-arrow-down mr-1"></i>Stop Loss
+                            </div>
+                            <div id="stopLoss" class="text-xl font-semibold text-red-800">-</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Position Size Suggestion -->
+                    <div id="positionSizeSection" class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h3 class="text-lg font-medium text-blue-800 mb-2">
+                            <i class="fas fa-coins mr-2"></i>Position Size Suggestion
+                        </h3>
+                        <div id="positionSizeContent">-</div>
+                    </div>
+                </div>
+                
+                <div id="loading" class="hidden text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-blue-600"></i>
+                    <div class="mt-2 text-gray-600">Calculating...</div>
+                </div>
+                
+                <div id="noResults" class="text-center py-8 text-gray-500">
+                    <i class="fas fa-chart-line text-4xl mb-4"></i>
+                    <div>Enter your option parameters above to see results</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
