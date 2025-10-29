@@ -1,14 +1,11 @@
 [build]
-  command = "pip install -r requirements.txt"
+  command = "echo 'Building static site'"
   functions = "netlify/functions"
   publish = "public"
 
-[functions]
-  python_runtime = "3.9"
-
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/api/:splat"
   status = 200
 
 [[redirects]]

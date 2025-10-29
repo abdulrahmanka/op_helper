@@ -9,13 +9,207 @@ It handles all API routes through a single serverless function.
 import json
 import sys
 import os
+from dataclasses import dataclass, asdict
+from typing import Optional
+from enum import Enum
+from datetime import datetime
 
-# Add the project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+# Inline all required classes and functions
+class TradeType(Enum):
+    BUY = "buy"
+    SELL = "sell"
 
-from option_pricing_helper import OptionPricingHelper, OptionTradeInputs, TradeType
-from config_manager import ConfigManager
-from dataclasses import asdict
+@dataclass
+class OptionTradeInputs:
+    """Input parameters for option trade calculations"""
+    delta: float
+    theta: float
+    trade_time: float
+    risk: float
+    reward: float
+    entry: float
+    trade_type: TradeType
+
+@dataclass
+class OptionTradeResults:
+    """Results of option trade calculations"""
+    trade_decay: float
+    exit_take_profit: float
+    exit_stop_loss: float
+    risk_amount: float
+    reward_amount: float
+    risk_validation: dict = None
+
+@dataclass
+class PositionSizingConfig:
+    """Configuration for position sizing and risk management"""
+    total_capital: float
+    risk_per_trade_percentage: float
+    max_risk_per_trade: Optional[float] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    def __post_init__(self):
+        if self.max_risk_per_trade is None:
+            self.max_risk_per_trade = self.total_capital * (self.risk_per_trade_percentage / 100.0)
+        if self.created_at is None:
+            self.created_at = datetime.now().isoformat()
+        self.updated_at = datetime.now().isoformat()
+
+@dataclass
+class RiskValidationResult:
+    """Result of risk validation"""
+    is_valid: bool
+    risk_amount: float
+    max_allowed_risk: float
+    risk_percentage_of_capital: float
+    configured_max_percentage: float
+    is_over_limit: bool
+    warning_message: Optional[str] = None
+    severity: str = "info"
+
+class OptionPricingHelper:
+    """Main class for option pricing calculations"""
+    
+    def __init__(self, config_manager=None):
+        self.name = "Option Pricing Helper"
+        self.config_manager = config_manager
+    
+    def calculate_trade_decay(self, theta: float, trade_time: float) -> float:
+        decay_per_minute = theta / (24 * 60)
+        return decay_per_minute * trade_time
+    
+    def calculate_risk_reward(self, trade_type: TradeType, risk: float, reward: float) -> tuple:
+        return risk, reward
+    
+    def calculate_exit_take_profit(self, entry: float, delta: float, reward: float, 
+                                 trade_decay: float, trade_type: TradeType) -> float:
+        if trade_type == TradeType.BUY:
+            return entry + (delta * reward) - trade_decay
+        else:
+            return entry - (delta * reward) - trade_decay
+    
+    def calculate_exit_stop_loss(self, entry: float, delta: float, risk: float,
+                               trade_decay: float, trade_type: TradeType) -> float:
+        if trade_type == TradeType.BUY:
+            return entry - (delta * risk) - trade_decay
+        else:
+            return entry + (delta * risk) - trade_decay
+    
+    def calculate_option_trade(self, inputs: OptionTradeInputs) -> OptionTradeResults:
+        trade_decay = self.calculate_trade_decay(inputs.theta, inputs.trade_time)
+        risk_amount, reward_amount = self.calculate_risk_reward(
+            inputs.trade_type, inputs.risk, inputs.reward
+        )
+        exit_take_profit = self.calculate_exit_take_profit(
+            inputs.entry, inputs.delta, inputs.reward, trade_decay, inputs.trade_type
+        )
+        exit_stop_loss = self.calculate_exit_stop_loss(
+            inputs.entry, inputs.delta, inputs.risk, trade_decay, inputs.trade_type
+        )
+        
+        risk_validation = None
+        if self.config_manager:
+            validation_result = self.config_manager.validate_risk(risk_amount)
+            risk_validation = asdict(validation_result)
+        
+        return OptionTradeResults(
+            trade_decay=trade_decay,
+            exit_take_profit=exit_take_profit,
+            exit_stop_loss=exit_stop_loss,
+            risk_amount=risk_amount,
+            reward_amount=reward_amount,
+            risk_validation=risk_validation
+        )
+
+class ConfigManager:
+    """Manages configuration for the option pricing helper"""
+    
+    def __init__(self):
+        self.config = PositionSizingConfig(
+            total_capital=10000.0,
+            risk_per_trade_percentage=2.0
+        )
+    
+    def get_config(self) -> PositionSizingConfig:
+        return self.config
+    
+    def update_config(self, total_capital: Optional[float] = None, 
+                     risk_per_trade_percentage: Optional[float] = None) -> bool:
+        if total_capital is not None:
+            self.config.total_capital = total_capital
+        if risk_per_trade_percentage is not None:
+            self.config.risk_per_trade_percentage = risk_per_trade_percentage
+        self.config.max_risk_per_trade = self.config.total_capital * (self.config.risk_per_trade_percentage / 100.0)
+        self.config.updated_at = datetime.now().isoformat()
+        return True
+    
+    def validate_risk(self, risk_amount: float) -> RiskValidationResult:
+        max_allowed_risk = self.config.max_risk_per_trade
+        risk_percentage_of_capital = (risk_amount / self.config.total_capital) * 100.0
+        configured_max_percentage = self.config.risk_per_trade_percentage
+        is_over_limit = risk_amount > max_allowed_risk
+        
+        severity = "info"
+        warning_message = None
+        is_valid = True
+        
+        if is_over_limit:
+            severity = "error"
+            is_valid = False
+            warning_message = (
+                f"⚠️ RISK LIMIT EXCEEDED! Risk amount ${risk_amount:.2f} exceeds "
+                f"maximum allowed ${max_allowed_risk:.2f} "
+                f"({risk_percentage_of_capital:.2f}% > {configured_max_percentage}% of capital)"
+            )
+        elif risk_percentage_of_capital > (configured_max_percentage * 0.8):
+            severity = "warning"
+            warning_message = (
+                f"⚠️ High Risk Warning: Risk amount ${risk_amount:.2f} is approaching "
+                f"the limit of ${max_allowed_risk:.2f} "
+                f"({risk_percentage_of_capital:.2f}% of {configured_max_percentage}% max)"
+            )
+        else:
+            warning_message = (
+                f"✅ Risk within limits: ${risk_amount:.2f} "
+                f"({risk_percentage_of_capital:.2f}% of capital)"
+            )
+        
+        return RiskValidationResult(
+            is_valid=is_valid,
+            risk_amount=risk_amount,
+            max_allowed_risk=max_allowed_risk,
+            risk_percentage_of_capital=risk_percentage_of_capital,
+            configured_max_percentage=configured_max_percentage,
+            is_over_limit=is_over_limit,
+            warning_message=warning_message,
+            severity=severity
+        )
+    
+    def get_position_size_suggestion(self, risk_amount: float, entry_price: float, 
+                                   stop_loss_price: float) -> dict:
+        risk_per_option = abs(entry_price - stop_loss_price)
+        
+        if risk_per_option <= 0:
+            return {
+                "error": "Invalid price levels - entry and stop loss must be different",
+                "suggested_contracts": 0
+            }
+        
+        max_contracts = int(risk_amount / risk_per_option)
+        actual_risk = max_contracts * risk_per_option
+        risk_validation = self.validate_risk(actual_risk)
+        
+        return {
+            "suggested_contracts": max_contracts,
+            "risk_per_option": risk_per_option,
+            "actual_risk": actual_risk,
+            "entry_price": entry_price,
+            "stop_loss_price": stop_loss_price,
+            "total_capital": self.config.total_capital,
+            "max_allowed_risk": self.config.max_risk_per_trade,
+            "risk_validation": asdict(risk_validation)
+        }
 
 
 def handler(event, context):
