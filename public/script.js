@@ -1,8 +1,17 @@
 // Option Pricing Helper - Frontend JavaScript
 
-const API_BASE = window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000' 
-    : '/.netlify/functions/api';
+// Detect environment and set API base URL
+let API_BASE;
+if (window.location.hostname === 'localhost' && window.location.port === '3000') {
+    // Local development - frontend on 3000, backend on 5000
+    API_BASE = 'http://localhost:5000';
+} else if (window.location.hostname === 'localhost') {
+    // Local backend only
+    API_BASE = 'http://localhost:5000';
+} else {
+    // Netlify deployment
+    API_BASE = '/.netlify/functions/api';
+}
 
 // DOM Elements
 const configBtn = document.getElementById('configBtn');

@@ -221,11 +221,21 @@ def handler(event, context):
     
     # Get HTTP method and path
     http_method = event.get('httpMethod', 'GET')
-    path = event.get('path', '').replace('/.netlify/functions/api', '')
     
-    # Handle direct function calls (path might be empty)
-    if not path:
-        path = event.get('rawUrl', '').split('/')[-1] if event.get('rawUrl') else ''
+    # Extract path from different possible locations
+    path = event.get('path', '')
+    if path.startswith('/.netlify/functions/api'):
+        path = path.replace('/.netlify/functions/api', '')
+    
+    # Handle query parameters for different endpoint detection
+    query_params = event.get('queryStringParameters') or {}
+    
+    # If path is still empty, try to determine from rawUrl or just default to health
+    if not path or path == '/':
+        path = '/health'
+        
+    # Log for debugging (will appear in Netlify function logs)
+    print(f"Request: {http_method} {path}")
     
     # Parse request body for POST requests
     body = {}
